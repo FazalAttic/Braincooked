@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Drained Brain Mascot">
+  <defs>
+    <radialGradient id="grad-drained" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#FF7278" />
+      <stop offset="100%" stop-color="#FC4A52" />
+    </radialGradient>
+  </defs>
+
+  <!-- Left Hemisphere -->
+  <path d="M 58 34 C 48 24, 28 26, 22 40 C 14 44, 12 56, 16 68 C 12 78, 22 90, 36 91 C 44 92, 52 86, 58 80 Z"
+        fill="url(#grad-drained)" stroke="#C82830" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+  
+  <!-- Right Hemisphere -->
+  <path d="M 62 34 C 72 24, 92 26, 98 40 C 106 44, 108 56, 104 68 C 108 78, 98 90, 84 91 C 76 92, 68 86, 62 80 Z"
+        fill="url(#grad-drained)" stroke="#C82830" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Stress Cracks / Fissures -->
+  <!-- Left Side Crack -->
+  <path d="M 30 36 L 36 44 L 32 50 L 38 56" fill="none" stroke="#660A10" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+  <!-- Right Side Crack -->
+  <path d="M 90 36 L 84 44 L 88 50 L 82 56" fill="none" stroke="#660A10" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+
+  <!-- Sulci / Folds -->
+  <path d="M 22 66 C 28 68, 32 76, 36 80"
+        fill="none" stroke="#B01D24" stroke-width="2" stroke-linecap="round" />
+  <path d="M 98 66 C 92 68, 88 76, 84 80"
+        fill="none" stroke="#B01D24" stroke-width="2" stroke-linecap="round" />
+
+  <!-- Central Fissure -->
+  <path d="M 60 32 L 60 80" fill="none" stroke="#B01D24" stroke-width="2.5" stroke-linecap="round" />
+
+  <!-- Exhausted 'X' or Strained Eyes -->
+  <!-- Left Eye: Crossed Out (X) -->
+  <g stroke="#0A0907" stroke-width="2.5" stroke-linecap="round">
+    <line x1="37" y1="53" x2="47" y2="63" />
+    <line x1="47" y1="53" x2="37" y2="63" />
+  </g>
+  <!-- Right Eye: Crossed Out (X) -->
+  <g stroke="#0A0907" stroke-width="2.5" stroke-linecap="round">
+    <line x1="73" y1="53" x2="83" y2="63" />
+    <line x1="83" y1="53" x2="73" y2="63" />
+  </g>
+
+  <!-- Dark Exhaustion Circles under eyes -->
+  <path d="M 34 67 Q 42 71, 50 67" fill="none" stroke="#660A10" stroke-width="1.6" stroke-linecap="round" />
+  <path d="M 70 67 Q 78 71, 86 67" fill="none" stroke="#660A10" stroke-width="1.6" stroke-linecap="round" />
+
+  <!-- Exhausted Open Gasp Mouth -->
+  <ellipse cx="60" cy="72" rx="6" ry="4" fill="#3D0307" stroke="#0A0907" stroke-width="2" />
+
+  <!-- Multiple Heavy Sweat Drops -->
+  <path d="M 18 50 C 18 50, 22 56, 20 58 C 18 60, 15 58, 15 56 C 15 54, 18 50, 18 50 Z"
+        fill="#75C2F6" stroke="#4682B4" stroke-width="1" />
+  <path d="M 102 50 C 102 50, 106 56, 104 58 C 102 60, 99 58, 99 56 C 99 54, 102 50, 102 50 Z"
+        fill="#75C2F6" stroke="#4682B4" stroke-width="1" />
+</svg>

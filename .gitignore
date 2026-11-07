@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Agent scaffolding
+.agents/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log

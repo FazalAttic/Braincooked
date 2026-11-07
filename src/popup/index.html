@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brainroad — BrainPal Fatigue Dashboard</title>
+  <link rel="stylesheet" href="./index.css" />
+</head>
+<body>
+  <div id="app" class="popup-container">
+    <!-- Header -->
+    <header class="popup-header">
+      <div class="brand">
+        <span class="brand-glyph">🧠</span>
+        <h1 class="brand-title">Brainroad</h1>
+      </div>
+      <div class="live-pill" aria-label="Tracking status: Active">
+        <span class="pulsing-dot" aria-hidden="true"></span>
+        <span class="live-text">Tracking Active</span>
+      </div>
+    </header>
+
+    <!-- Hero Fatigue Section -->
+    <main class="popup-body">
+      <section class="hero-card" aria-labelledby="hero-title">
+        <div id="mascot-container" class="mascot-frame" role="img" aria-label="Brain Fatigue Mascot">
+          <!-- SVG Mascot injected dynamically -->
+        </div>
+
+        <div class="hero-counter-box">
+          <div id="hero-today-count" class="hero-number" aria-live="polite">0</div>
+          <div id="hero-title" class="hero-label">Reels &amp; Shorts Today</div>
+        </div>
+
+        <div class="stage-container">
+          <div id="stage-badge" class="stage-badge" style="--stage-color: #79D056;">
+            <span class="stage-dot" aria-hidden="true"></span>
+            <span id="stage-name" class="stage-name">Fresh Mind</span>
+          </div>
+          <p id="stage-description" class="stage-desc">
+            Clear mind and high focus. Keep it mindful!
+          </p>
+        </div>
+      </section>
+
+      <!-- Platform Breakdown -->
+      <section class="card platform-card" aria-labelledby="breakdown-heading">
+        <h2 id="breakdown-heading" class="card-title">Platform Breakdown</h2>
+
+        <!-- Instagram Row -->
+        <div class="platform-row" id="platform-row-ig">
+          <div class="platform-meta">
+            <span class="platform-label">
+              <span class="platform-icon ig-icon" aria-hidden="true">IG</span>
+              <span>Instagram Reels</span>
+            </span>
+            <span class="platform-stats">
+              <span id="ig-count" class="platform-count">0</span>
+              <span id="ig-percent" class="platform-pct">(0%)</span>
+            </span>
+          </div>
+          <div class="progress-track" role="progressbar" id="ig-progress" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Instagram proportion">
+            <div id="ig-bar" class="progress-bar ig-bar" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- YouTube Row -->
+        <div class="platform-row" id="platform-row-yt">
+          <div class="platform-meta">
+            <span class="platform-label">
+              <span class="platform-icon yt-icon" aria-hidden="true">YT</span>
+              <span>YouTube Shorts</span>
+            </span>
+            <span class="platform-stats">
+              <span id="yt-count" class="platform-count">0</span>
+              <span id="yt-percent" class="platform-pct">(0%)</span>
+            </span>
+          </div>
+          <div class="progress-track" role="progressbar" id="yt-progress" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="YouTube proportion">
+            <div id="yt-bar" class="progress-bar yt-bar" style="width: 0%;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Multi-Horizon Stats Card -->
+      <section class="card horizon-card" aria-label="Time Horizon Statistics">
+        <div class="horizon-col">
+          <span class="horizon-label">Today</span>
+          <span id="horizon-today" class="horizon-val">0</span>
+        </div>
+        <div class="horizon-divider" aria-hidden="true"></div>
+        <div class="horizon-col">
+          <span class="horizon-label">Session</span>
+          <span id="horizon-session" class="horizon-val">0</span>
+        </div>
+        <div class="horizon-divider" aria-hidden="true"></div>
+        <div class="horizon-col">
+          <span class="horizon-label">All-Time</span>
+          <span id="horizon-total" class="horizon-val">0</span>
+        </div>
+      </section>
+
+      <!-- Footer Reset Trigger -->
+      <footer class="popup-footer">
+        <button id="btn-open-reset" class="btn-reset" type="button" aria-haspopup="dialog">
+          Reset Today
+        </button>
+      </footer>
+    </main>
+
+    <!-- Confirmed Reset Action Modal (Native HTML <dialog>) -->
+    <dialog id="reset-modal" class="modal-dialog" aria-labelledby="reset-modal-title">
+      <div class="modal-surface">
+        <div class="modal-header">
+          <span class="modal-warn-icon" aria-hidden="true">⚠️</span>
+          <h2 id="reset-modal-title" class="modal-title">Reset Today's Count?</h2>
+        </div>
+        <p class="modal-body">
+          This will reset your reels and shorts counter for today back to zero. Your all-time history will be preserved.
+        </p>
+        <div class="modal-actions">
+          <button id="btn-cancel-reset" type="button" class="btn-secondary" autofocus>
+            Cancel
+          </button>
+          <button id="btn-confirm-reset" type="button" class="btn-danger">
+            Confirm Reset
+          </button>
+        </div>
+      </div>
+    </dialog>
+  </div>
+
+  <script type="module" src="./index.ts"></script>
+</body>
+</html>
