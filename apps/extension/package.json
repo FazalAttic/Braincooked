@@ -1,0 +1,27 @@
+{
+  "name": "@brainroad/extension",
+  "version": "1.0.0",
+  "description": "Brainroad Chrome Extension (MV3) for mindful consumption tracking",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run build:icons && bun scripts/build.mjs --watch",
+    "build": "bun run build:icons && bun scripts/build.mjs",
+    "build:icons": "bun scripts/generate-icons.mjs",
+    "test": "bun x vitest run",
+    "test:watch": "bun x vitest",
+    "test:e2e": "bun tests/e2e/test_runner.js",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@brainroad/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.307",
+    "@types/node": "^22.10.1",
+    "jsdom": "^26.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.2.0",
+    "vitest": "^3.0.5"
+  }
+}

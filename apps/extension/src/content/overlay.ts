@@ -6,13 +6,14 @@
  * - Defaults to top-center (over the Short/Reel).
  * - The user can drag it anywhere; the chosen position is remembered in
  *   chrome.storage.local and restored on every page load.
- * - The counter text is animated with `torph` (TextMorph) as the numbers change.
+ * - The counter text is animated with a small rolling-number "odometer"
+ *   (src/content/rolling.ts) as the numbers change.
  */
 
 import type { BrainroadStats } from '../shared/types';
 import { STORAGE_KEY_STATS } from '../shared/types';
 import { FATIGUE_STAGES } from '../shared/constants';
-import { TextMorph } from 'torph';
+import { RollingNumber } from './rolling';
 
 const HOST_ID = 'brainroad-count-bubble';
 const STYLE_ID = 'brainroad-bubble-style';
@@ -27,13 +28,12 @@ export interface CountBubbleOptions {
   chrome?: typeof globalThis.chrome;
   document?: Document;
   window?: Window;
+  initialVisible?: boolean;
 }
 
 /**
  * Bubble styles. Scoped under the host id (high specificity) and marked
- * !important so host-page CSS cannot distort the widget. torph injects its own
- * morph CSS into document.head, which is why this element lives in the main
- * document rather than inside a Shadow DOM.
+ * !important so host-page CSS cannot distort the widget.
  */
 const BUBBLE_CSS = `
 #${HOST_ID} {
@@ -48,6 +48,9 @@ const BUBBLE_CSS = `
   cursor: grab !important;
   line-height: 0 !important;
   touch-action: none !important;
+}
+#${HOST_ID}.brb-hidden {
+  display: none !important;
 }
 #${HOST_ID} .brb-bubble {
   display: flex !important;
@@ -123,6 +126,23 @@ const BUBBLE_CSS = `
   font-weight: 800 !important;
   font-variant-numeric: tabular-nums !important;
 }
+#${HOST_ID} .brn-roll {
+  display: inline-block !important;
+  line-height: 0 !important;
+  white-space: nowrap !important;
+}
+#${HOST_ID} .brn-col {
+  display: inline-block !important;
+  overflow: hidden !important;
+  height: 1em !important;
+  line-height: 1 !important;
+  vertical-align: top !important;
+}
+#${HOST_ID} .brn-digit {
+  display: inline-block !important;
+  line-height: 1 !important;
+  vertical-align: top !important;
+}
 `;
 
 /**
@@ -139,13 +159,15 @@ export class CountBubbleController {
   private igEl: HTMLElement | null = null;
   private accentEl: HTMLElement | null = null;
 
-  private todayMorph: TextMorph | null = null;
-  private ytMorph: TextMorph | null = null;
-  private igMorph: TextMorph | null = null;
+  private todayRoll: RollingNumber | null = null;
+  private ytRoll: RollingNumber | null = null;
+  private igRoll: RollingNumber | null = null;
 
   private boundStorageChange:
     | ((changes: Record<string, chrome.storage.StorageChange>, area: string) => void)
     | null = null;
+
+  private visible = true;
 
   // Drag state
   private dragging = false;
@@ -211,6 +233,9 @@ export class CountBubbleController {
     this.chromeApi = options.chrome ?? (typeof chrome !== 'undefined' ? chrome : ({} as any));
     this.doc = options.document ?? (typeof document !== 'undefined' ? document : ({} as any));
     this.win = options.window ?? this.doc?.defaultView ?? (typeof window !== 'undefined' ? window : null);
+    if (typeof options.initialVisible === 'boolean') {
+      this.visible = options.initialVisible;
+    }
   }
 
   /**
@@ -226,10 +251,11 @@ export class CountBubbleController {
     if (existing) {
       this.host = existing;
       this.cacheElementRefs();
-      this.setupMorphs();
+      this.setupRolling();
       this.attachDragHandlers();
       this.registerStorageListener();
       this.loadInitialStats();
+      this.applyVisibility();
       return;
     }
 
@@ -289,7 +315,8 @@ export class CountBubbleController {
     this.igEl = ig.querySelector('b');
     this.accentEl = bubble;
 
-    this.setupMorphs();
+    this.applyVisibility();
+    this.setupRolling();
     this.attachDragHandlers();
     this.registerStorageListener();
     this.loadInitialStats();
@@ -312,13 +339,55 @@ export class CountBubbleController {
   public update(stats: BrainroadStats): void {
     if (!stats) return;
 
-    this.todayMorph?.update(String(stats.today ?? 0));
-    this.ytMorph?.update(String(stats.platforms?.youtube?.today ?? 0));
-    this.igMorph?.update(String(stats.platforms?.instagram?.today ?? 0));
+    this.todayRoll?.update(String(stats.today ?? 0));
+    this.ytRoll?.update(String(stats.platforms?.youtube?.today ?? 0));
+    this.igRoll?.update(String(stats.platforms?.instagram?.today ?? 0));
 
     const accent = this.stageColor(stats.today ?? 0);
     if (this.accentEl) {
       this.accentEl.style.setProperty('--br-accent', accent);
+    }
+  }
+
+  /**
+   * Shows the count bubble.
+   */
+  public show(): void {
+    this.visible = true;
+    this.applyVisibility();
+  }
+
+  /**
+   * Hides the count bubble completely from view and pointer interactions.
+   */
+  public hide(): void {
+    this.visible = false;
+    this.applyVisibility();
+  }
+
+  /**
+   * Sets visibility of the count bubble.
+   */
+  public setVisible(visible: boolean): void {
+    this.visible = visible;
+    this.applyVisibility();
+  }
+
+  /**
+   * Returns true if the bubble is currently marked visible.
+   */
+  public isVisible(): boolean {
+    return this.visible;
+  }
+
+  private applyVisibility(): void {
+    if (!this.host) return;
+    if (this.visible) {
+      this.host.classList.remove('brb-hidden');
+      this.host.style.removeProperty('display');
+    } else {
+      this.host.classList.add('brb-hidden');
+      this.host.style.setProperty('display', 'none', 'important');
     }
   }
 
@@ -335,12 +404,12 @@ export class CountBubbleController {
     }
     this.boundStorageChange = null;
 
-    this.todayMorph?.destroy();
-    this.ytMorph?.destroy();
-    this.igMorph?.destroy();
-    this.todayMorph = null;
-    this.ytMorph = null;
-    this.igMorph = null;
+    this.todayRoll?.destroy();
+    this.ytRoll?.destroy();
+    this.igRoll?.destroy();
+    this.todayRoll = null;
+    this.ytRoll = null;
+    this.igRoll = null;
 
     if (this.host) {
       this.host.removeEventListener('pointerdown', this.onPointerDown);
@@ -381,19 +450,19 @@ export class CountBubbleController {
     this.accentEl = this.host.querySelector<HTMLElement>('.brb-bubble');
   }
 
-  private setupMorphs(): void {
-    this.todayMorph?.destroy();
-    this.ytMorph?.destroy();
-    this.igMorph?.destroy();
+  private setupRolling(): void {
+    this.todayRoll?.destroy();
+    this.ytRoll?.destroy();
+    this.igRoll?.destroy();
 
     if (this.todayEl) {
-      this.todayMorph = new TextMorph({ element: this.todayEl, duration: 400, numbers: true });
+      this.todayRoll = new RollingNumber(this.todayEl, 400);
     }
     if (this.ytEl) {
-      this.ytMorph = new TextMorph({ element: this.ytEl, duration: 400, numbers: true });
+      this.ytRoll = new RollingNumber(this.ytEl, 400);
     }
     if (this.igEl) {
-      this.igMorph = new TextMorph({ element: this.igEl, duration: 400, numbers: true });
+      this.igRoll = new RollingNumber(this.igEl, 400);
     }
   }
 

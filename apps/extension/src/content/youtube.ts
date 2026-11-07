@@ -26,6 +26,33 @@ export const DEFAULT_VIEW_DURATION_THRESHOLD_MS = 1500;
 export const VIEW_DURATION_THRESHOLD_MS = DEFAULT_VIEW_DURATION_THRESHOLD_MS;
 export const SESSION_STORAGE_KEY = 'brainroad_yt_session';
 
+/**
+ * Checks whether a given window or path string matches a YouTube Shorts route.
+ */
+export function isYouTubeShortsUrl(winOrPath?: Window | string | null): boolean {
+  let pathname = '';
+  let href = '';
+  if (typeof winOrPath === 'string') {
+    pathname = winOrPath;
+    href = winOrPath;
+  } else if (winOrPath && typeof winOrPath === 'object' && 'location' in winOrPath) {
+    pathname = (winOrPath as Window).location?.pathname || '';
+    href = (winOrPath as Window).location?.href || '';
+  } else if (typeof window !== 'undefined' && window.location) {
+    pathname = window.location.pathname || '';
+    href = window.location.href || '';
+  }
+
+  return pathname.includes('/shorts') || href.includes('/shorts');
+}
+
+/**
+ * Checks whether YouTube Shorts are currently active or present in the DOM/window.
+ */
+export function isYouTubeShortsPresent(win?: Window | null, _doc?: Document | null): boolean {
+  return isYouTubeShortsUrl(win);
+}
+
 // ============================================================================
 // 2. VIDEO ID EXTRACTION CASCADE
 // ============================================================================
@@ -149,6 +176,7 @@ export interface YouTubeDetectorOptions {
   document?: Document;
   dwellMs?: number;
   onViewQualified?: (videoId: string) => Promise<void> | void;
+  bubble?: CountBubbleController;
 }
 
 /**
@@ -160,6 +188,7 @@ export class YouTubeShortsDetector {
   private doc: Document;
   private readonly dwellMs: number;
   private onViewQualified: (videoId: string) => Promise<void> | void;
+  private bubble: CountBubbleController | null = null;
 
   private sessionViewedIds = new Set<string>();
   private activeVideoId: string | null = null;
@@ -191,6 +220,7 @@ export class YouTubeShortsDetector {
     this.doc = options.document ?? (typeof document !== 'undefined' ? document : ({} as any));
     this.dwellMs = options.dwellMs ?? DEFAULT_VIEW_DURATION_THRESHOLD_MS;
     this.onViewQualified = options.onViewQualified ?? this.defaultDispatchView.bind(this);
+    this.bubble = options.bubble ?? null;
 
     this.onYtNavigateFinishBound = () => this.handleNavigationChange();
     this.onPopStateBound = () => this.handleNavigationChange();
@@ -257,8 +287,37 @@ export class YouTubeShortsDetector {
     // 4. MutationObserver watching for [is-active] toggles on Shorts renderers
     this.setupMutationObserver();
 
-    // 5. Initial evaluation on page load / script injection
+    // 5. Initial evaluation and bubble visibility sync on page load / script injection
+    this.updateBubbleVisibility();
     this.evaluateActiveShort();
+  }
+
+  /**
+   * Attaches or updates the reference to the floating count bubble.
+   */
+  public setBubble(bubble: CountBubbleController | null): void {
+    this.bubble = bubble;
+    this.updateBubbleVisibility();
+  }
+
+  /**
+   * Returns current bubble reference if attached.
+   */
+  public getBubble(): CountBubbleController | null {
+    return this.bubble;
+  }
+
+  /**
+   * Synchronizes bubble visibility: shown when on Shorts, hidden otherwise.
+   */
+  public updateBubbleVisibility(): void {
+    if (!this.bubble) return;
+    const isShorts = isYouTubeShortsPresent(this.win, this.doc);
+    if (isShorts) {
+      this.bubble.show();
+    } else {
+      this.bubble.hide();
+    }
   }
 
   /**
@@ -274,6 +333,7 @@ export class YouTubeShortsDetector {
         // Check if URL changed behind the scenes (history.replaceState during infinite scroll)
         if (this.win?.location?.href && this.win.location.href !== this.lastUrl) {
           this.lastUrl = this.win.location.href;
+          this.updateBubbleVisibility();
         }
 
         let shouldEvaluate = false;
@@ -380,15 +440,16 @@ export class YouTubeShortsDetector {
     if (!this.isTracking) return;
 
     // Check if on a Shorts route
-    const pathname = this.win?.location?.pathname || '';
-    const href = this.win?.location?.href || '';
-    const isShortsRoute = pathname.includes('/shorts') || href.includes('/shorts');
+    const isShortsRoute = isYouTubeShortsPresent(this.win, this.doc);
 
     if (!isShortsRoute) {
       // User navigated away from Shorts to /watch or /
       this.clearActiveObservation();
+      this.bubble?.hide();
       return;
     }
+
+    this.bubble?.show();
 
     // Locate the active short (renderer + video) using a robust cascade that
     // does not hard-depend on the transient `is-active` attribute.
@@ -590,6 +651,7 @@ export class YouTubeShortsDetector {
     if (this.win?.location?.href) {
       this.lastUrl = this.win.location.href;
     }
+    this.updateBubbleVisibility();
     this.evaluateActiveShort();
   }
 
@@ -785,7 +847,10 @@ export function createYouTubeDetector(
 export function initYouTubeTracking(options?: YouTubeDetectorOptions): () => void {
   const detector = new YouTubeShortsDetector(options);
   detector.init();
-  return () => detector.destroy();
+  return () => {
+    detector.destroy();
+    options?.bubble?.destroy();
+  };
 }
 
 export const initYouTubeContentScript = initYouTubeTracking;
@@ -803,23 +868,31 @@ if (
   !(window as any).__BRAINROAD_TEST_ENV__
 ) {
   try {
-    const liveDetector = new YouTubeShortsDetector({
-      chrome,
-      window,
-      document
-    });
-    liveDetector.init();
-    (window as any).__brainroadYouTube = liveDetector;
-    console.log('[Brainroad] YouTube Shorts content script active');
+    const isShorts = isYouTubeShortsPresent(window, document);
+    let bubble: CountBubbleController | null = null;
 
-    // Floating live-count bubble pinned to the top of the page
+    // Floating live-count bubble pinned to the top of the page (starts hidden if not on Shorts)
     try {
-      const bubble = new CountBubbleController({ chrome, document });
+      bubble = new CountBubbleController({
+        chrome,
+        document,
+        initialVisible: isShorts
+      });
       bubble.mount();
       (window as any).__brainroadYouTubeBubble = bubble;
     } catch (bubbleErr) {
       console.error('[Brainroad] Failed to mount YouTube count bubble:', bubbleErr);
     }
+
+    const liveDetector = new YouTubeShortsDetector({
+      chrome,
+      window,
+      document,
+      bubble: bubble ?? undefined
+    });
+    liveDetector.init();
+    (window as any).__brainroadYouTube = liveDetector;
+    console.log('[Brainroad] YouTube Shorts content script active');
   } catch (err) {
     console.error('[Brainroad] Failed to initialize YouTube Shorts detector:', err);
   }

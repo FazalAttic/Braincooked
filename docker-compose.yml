@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # --------------------------------------------------------------------------
+  # 1. PostgreSQL Database Service
+  # --------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: brainroad-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: brainroad
+      POSTGRES_USER: brainroad_user
+      POSTGRES_PASSWORD: brainroad_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./apps/web/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brainroad_user -d brainroad"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # 2. Redis Caching & Streak Engine
+  # --------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: brainroad-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # 3. ElysiaJS Backend on Bun Runtime (Port 4000)
+  # --------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: brainroad-backend
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - DATABASE_URL=postgresql://brainroad_user:brainroad_password@postgres:5432/brainroad?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # --------------------------------------------------------------------------
+  # 4. Next.js Dashboard Frontend (Port 3000)
+  # --------------------------------------------------------------------------
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: brainroad-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+      - PORT=3000
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  redisdata:

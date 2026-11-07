@@ -1,13 +1,96 @@
+# ==========================================
 # Dependencies
+# ==========================================
 node_modules/
+.pnp
+.pnp.js
 
-# Build output
+# ==========================================
+# Environment & Local Secrets
+# ==========================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.env.*
+!*.env.example
+
+# ==========================================
+# Production & Distribution Builds
+# ==========================================
 dist/
+**/dist/
+build/
+**/build/
+out/
+**/out/
+.next/
+**/.next/
 
-# Agent scaffolding
-.agents/
+# ==========================================
+# TypeScript & Bundler Caches
+# ==========================================
+*.tsbuildinfo
+.eslintcache
+.cache/
+.turbo/
+.rollup.cache/
 
-# OS / editor noise
+# ==========================================
+# Runtime & Package Manager Redundancies
+# (Root bun.lock is the single source of truth)
+# ==========================================
+package-lock.json
+**/package-lock.json
+yarn.lock
+**/yarn.lock
+pnpm-lock.yaml
+**/pnpm-lock.yaml
+
+# ==========================================
+# Databases & Local Storage Data
+# ==========================================
+*.sqlite
+*.sqlite3
+*.db
+pgdata/
+**/pgdata/
+
+# ==========================================
+# Testing & Code Coverage
+# ==========================================
+coverage/
+**/coverage/
+.nyc_output/
+
+# ==========================================
+# Logs
+# ==========================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================================
+# IDE & Operating System Artifacts
+# ==========================================
 .DS_Store
 Thumbs.db
-*.log
+*.swp
+*.swo
+*~
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# ==========================================
+# Agent & Tool Scaffolding
+# ==========================================
+.agents/

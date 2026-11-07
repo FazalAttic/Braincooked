@@ -6,9 +6,12 @@
 
 import { StorageEngine, STORAGE_KEY_STATS } from './storage';
 import { updateBadge } from './badge';
+import { SyncEngine } from './sync';
 import type { MessageRequest, MessageResponse, BrainroadStats } from '../shared/types';
 
 const storage = new StorageEngine();
+export const syncEngine = new SyncEngine();
+syncEngine.init().catch(() => {});
 
 // ============================================================================
 // 1. TOP-LEVEL SYNCHRONOUS EVENT REGISTRATION
@@ -100,6 +103,9 @@ async function routeMessage(
       }
 
       const result = await storage.recordView(platform, id.trim(), timestamp);
+      if (result.newlyCounted) {
+        syncEngine.enqueue(platform, id.trim()).catch(() => {});
+      }
       return {
         ok: true,
         stats: result.stats,
@@ -114,6 +120,9 @@ async function routeMessage(
         return { ok: false, error: 'REEL_DETECTED requires shortcode id string' };
       }
       const result = await storage.recordView('instagram', msg.id.trim(), msg.timestamp);
+      if (result.newlyCounted) {
+        syncEngine.enqueue('instagram', msg.id.trim(), msg.timestamp).catch(() => {});
+      }
       return { ok: true, stats: result.stats, newlyCounted: result.newlyCounted };
     }
 
@@ -125,6 +134,9 @@ async function routeMessage(
         return { ok: false, error: 'SHORT_VIEWED requires videoId string' };
       }
       const result = await storage.recordView('youtube', videoId.trim(), msg.timestamp);
+      if (result.newlyCounted) {
+        syncEngine.enqueue('youtube', videoId.trim(), msg.timestamp).catch(() => {});
+      }
       return { ok: true, stats: result.stats, newlyCounted: result.newlyCounted };
     }
 

@@ -31,6 +31,71 @@ export const DEFAULT_VISIBILITY_THRESHOLD = 0.60;
 export const DWELL_THRESHOLD_MS = DEFAULT_DWELL_MS;
 export const VISIBILITY_THRESHOLD_RATIO = DEFAULT_VISIBILITY_THRESHOLD;
 
+/**
+ * Checks whether a given window or path string matches an Instagram Reels route.
+ */
+export function isInstagramReelsUrl(winOrPath?: Window | string | null): boolean {
+  let pathname = '';
+  let href = '';
+  if (typeof winOrPath === 'string') {
+    pathname = winOrPath;
+    href = winOrPath;
+  } else if (winOrPath && typeof winOrPath === 'object' && 'location' in winOrPath) {
+    pathname = (winOrPath as Window).location?.pathname || '';
+    href = (winOrPath as Window).location?.href || '';
+  } else if (typeof window !== 'undefined' && window.location) {
+    pathname = window.location.pathname || '';
+    href = window.location.href || '';
+  }
+
+  return (
+    pathname.includes('/reels') ||
+    pathname.includes('/reel/') ||
+    REEL_PATH_REGEX.test(pathname) ||
+    href.includes('/reels') ||
+    href.includes('/reel/')
+  );
+}
+
+/**
+ * Checks whether Instagram Reels are currently active or present in the DOM/window.
+ */
+export function isInstagramReelPresent(
+  win?: Window | null,
+  doc?: Document | null,
+  monitoredVideos?: Set<HTMLVideoElement>,
+  videoRatios?: WeakMap<HTMLVideoElement, number>
+): boolean {
+  // 1. Dedicated Reels route or direct reel modal route
+  if (isInstagramReelsUrl(win)) {
+    return true;
+  }
+
+  // 2. Direct reel dialog or modal currently open in DOM
+  if (doc) {
+    const dialogReel = doc.querySelector('div[role="dialog"] a[href*="/reel/"], div[role="dialog"] a[href*="/reels/"]');
+    if (dialogReel) {
+      return true;
+    }
+  }
+
+  // 3. Monitored video active in viewport
+  if (monitoredVideos && videoRatios) {
+    for (const video of monitoredVideos) {
+      if (!video.isConnected) continue;
+      const ratio = videoRatios.get(video) ?? 0;
+      if (ratio >= 0.25) {
+        const shortcode = extractReelShortcode(video, win ?? undefined);
+        if (shortcode) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 // ============================================================================
 // 2. ZERO-CLASS DOM TRAVERSAL & SHORTCODE EXTRACTION
 // ============================================================================
@@ -140,6 +205,7 @@ export interface InstagramDetectorOptions {
   dwellMs?: number;
   visibilityRatio?: number;
   onViewQualified?: (shortcode: string) => Promise<void> | void;
+  bubble?: CountBubbleController;
 }
 
 /**
@@ -152,6 +218,7 @@ export class InstagramReelDetector {
   private readonly dwellMs: number;
   private readonly visibilityRatio: number;
   private onViewQualified: (shortcode: string) => Promise<void> | void;
+  private bubble: CountBubbleController | null = null;
 
   private sessionSeen = new Set<string>();
   private activeTimers = new Map<HTMLVideoElement, number>();
@@ -175,6 +242,7 @@ export class InstagramReelDetector {
     this.dwellMs = options.dwellMs ?? DEFAULT_DWELL_MS;
     this.visibilityRatio = options.visibilityRatio ?? DEFAULT_VISIBILITY_THRESHOLD;
     this.onViewQualified = options.onViewQualified ?? this.defaultDispatchView.bind(this);
+    this.bubble = options.bubble ?? null;
 
     this.onVisibilityChangeBound = this.handleVisibilityChange.bind(this);
     this.onPopStateBound = () => this.handleNavigationChange();
@@ -244,6 +312,8 @@ export class InstagramReelDetector {
           // Reactive URL check
           if (this.win?.location?.href && this.win.location.href !== this.lastUrl) {
             this.handleNavigationChange(this.win.location.href);
+          } else {
+            this.updateBubbleVisibility();
           }
 
           for (const mut of mutations) {
@@ -302,13 +372,49 @@ export class InstagramReelDetector {
       }
     }
 
-    // 6. Listen for runtime reset messages from popup or background
+    // 6. Synchronize initial bubble visibility
+    this.updateBubbleVisibility();
+
+    // 7. Listen for runtime reset messages from popup or background
     if (this.chromeApi?.runtime?.onMessage?.addListener) {
       this.chromeApi.runtime.onMessage.addListener((message: any) => {
         if (message && (message.type === 'RESET_SESSION' || message.type === 'RESET_STATS')) {
           this.resetSession();
         }
       });
+    }
+  }
+
+  /**
+   * Attaches or updates the reference to the floating count bubble.
+   */
+  public setBubble(bubble: CountBubbleController | null): void {
+    this.bubble = bubble;
+    this.updateBubbleVisibility();
+  }
+
+  /**
+   * Returns current bubble reference if attached.
+   */
+  public getBubble(): CountBubbleController | null {
+    return this.bubble;
+  }
+
+  /**
+   * Synchronizes bubble visibility: shown when Reels are present, hidden otherwise.
+   */
+  public updateBubbleVisibility(): void {
+    if (!this.bubble) return;
+    const isPresent = isInstagramReelPresent(
+      this.win,
+      this.doc,
+      this.monitoredVideos,
+      this.videoRatios
+    );
+    if (isPresent) {
+      this.bubble.show();
+    } else {
+      this.bubble.hide();
     }
   }
 
@@ -381,6 +487,8 @@ export class InstagramReelDetector {
       delete (video as any)._br_onPause;
       delete (video as any)._br_onStall;
     }
+
+    this.updateBubbleVisibility();
   }
 
   /**
@@ -389,6 +497,7 @@ export class InstagramReelDetector {
   public handleIntersection(video: HTMLVideoElement, ratio: number): void {
     if (!this.isTracking || !video) return;
     this.videoRatios.set(video, ratio);
+    this.updateBubbleVisibility();
 
     const shortcode = this.extractShortcode(video);
     if (!shortcode || this.sessionSeen.has(shortcode)) {
@@ -502,6 +611,8 @@ export class InstagramReelDetector {
     } else if (this.win?.location?.href) {
       this.lastUrl = this.win.location.href;
     }
+
+    this.updateBubbleVisibility();
 
     for (const video of this.monitoredVideos) {
       this.cancelDwell(video);
@@ -638,7 +749,10 @@ export function createInstagramDetector(
 export function initInstagramTracking(options?: InstagramDetectorOptions): () => void {
   const detector = new InstagramReelDetector(options);
   detector.init();
-  return () => detector.destroy();
+  return () => {
+    detector.destroy();
+    options?.bubble?.destroy();
+  };
 }
 
 export const initInstagramContentScript = initInstagramTracking;
@@ -656,23 +770,31 @@ if (
   !(window as any).__BRAINROAD_TEST_ENV__
 ) {
   try {
-    const liveDetector = new InstagramReelDetector({
-      chrome,
-      window,
-      document
-    });
-    liveDetector.init();
-    (window as any).__brainroadInstagram = liveDetector;
-    console.log('[Brainroad] Instagram content script active');
+    const isReel = isInstagramReelsUrl(window);
+    let bubble: CountBubbleController | null = null;
 
-    // Floating live-count bubble pinned to the top of the page
+    // Floating live-count bubble pinned to the top of the page (starts hidden if not on Reels)
     try {
-      const bubble = new CountBubbleController({ chrome, document });
+      bubble = new CountBubbleController({
+        chrome,
+        document,
+        initialVisible: isReel
+      });
       bubble.mount();
       (window as any).__brainroadInstagramBubble = bubble;
     } catch (bubbleErr) {
       console.error('[Brainroad] Failed to mount Instagram count bubble:', bubbleErr);
     }
+
+    const liveDetector = new InstagramReelDetector({
+      chrome,
+      window,
+      document,
+      bubble: bubble ?? undefined
+    });
+    liveDetector.init();
+    (window as any).__brainroadInstagram = liveDetector;
+    console.log('[Brainroad] Instagram content script active');
   } catch (err) {
     console.error('[Brainroad] Failed to initialize Instagram detector:', err);
   }

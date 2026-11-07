@@ -3,36 +3,15 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
-    "types": [
-      "chrome",
-      "node"
-    ],
     "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "esModuleInterop": true,
     "skipLibCheck": true,
-    "isolatedModules": true,
-    "resolveJsonModule": true
+    "baseUrl": "."
   },
-  "include": [
-    "src/**/*",
-    "tests/**/*",
-    "scripts/**/*",
-    "vite.config.ts"
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./apps/extension" },
+    { "path": "./apps/backend" },
+    { "path": "./apps/web" }
   ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+  "files": []
 }
